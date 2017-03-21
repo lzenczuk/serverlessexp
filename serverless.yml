@@ -32,6 +32,18 @@ provider:
         - dynamodb:PutItem
       Resource: arn:aws:dynamodb:*:*:table/RequestsTable
 
+    - Effect: "Allow"
+      Action:
+        - dynamodb:PutItem
+        - dynamodb:GetItem
+        - dynamodb:Scan
+      Resource: arn:aws:dynamodb:*:*:table/CategoriesQueryTable
+
+    - Effect: "Allow"
+      Action:
+        - kinesis:PutRecord
+      Resource: arn:aws:kinesis:*:*:stream/testx
+
 # you can define service wide environment variables here
 #  environment:
 #    variable1: value1
@@ -48,6 +60,20 @@ provider:
 functions:
   hello:
     handler: handler.hello
+    events:
+      - http: POST wykop/crawler
+  get_categories:
+    handler: handler.get_all_categories_handler
+    events:
+      - http: GET wykop/categories
+  categories:
+    handler: handler.categories_tree_handler
+    events:
+      - stream:
+          arn: arn:aws:kinesis:eu-west-1:039898779445:stream/testx
+          batchSize: 1
+          startingPosition: LATEST
+          enabled: true
 
 #    The following are a few example events you can configure
 #    NOTE: Please make sure to change your handler code to work with those events
@@ -90,6 +116,7 @@ functions:
 #       Value: "Some output value"
 resources:
   Resources:
+  # ----------------------------------
     RequestsTable:
       Type: AWS::DynamoDB::Table
       Properties:
@@ -109,3 +136,32 @@ resources:
           WriteCapacityUnits: "5"
 
         TableName: "RequestsTable"
+
+  # ----------------------------------
+    CategoriesQueryTable:
+      Type: AWS::DynamoDB::Table
+      Properties:
+        AttributeDefinitions:
+          -
+            AttributeName: "category_name"
+            AttributeType: "S"
+
+        KeySchema:
+          -
+            AttributeName: "category_name"
+            KeyType: "HASH"
+
+        ProvisionedThroughput:
+
+          ReadCapacityUnits: "5"
+          WriteCapacityUnits: "5"
+
+        TableName: "CategoriesQueryTable"
+
+  # ----------------------------------
+    CategoriesStream:
+      Type: "AWS::Kinesis::Stream"
+      Properties:
+        Name: "CategoriesTreeQueryStream"
+        ShardCount: 1
+
